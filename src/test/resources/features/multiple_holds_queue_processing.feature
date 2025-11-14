@@ -121,3 +121,74 @@ Feature: Multiple Holds Queue Processing
     Then the hold queue for "The Hobbit" should be empty
     And user "charlie" logs out
 
+  Scenario Outline: Borrowing up to 3 books
+    Given the following people exist:
+      | username | password |
+      | <user>   | <pass>   |
+    And the books below exist:
+      | title      | author                |
+      | The Odyssey| Homer                 |
+      | The Iliad  | Homer                 |
+      | Hamlet     | William Shakespeare   |
+    And <user> had been logged in
+    When "<user>" tries to borrow "The Odyssey"
+    And "<user>" tries to borrow "The Iliad"
+    And "<user>" tries to borrow "Hamlet"
+    Then "<user>" should have 3 books borrowed
+    And "<user>" tries to borrow "The Lord of the Rings: The Fellowship of the Ring" but is at the limit
+    Then a message "Borrowing limit reached (3 books max)." should be shown
+    When "<user>" places a hold on "War and Peace"
+    Then a message "Borrowing limit reached (3 books max). You can place a hold on this book." should be shown
+    And "<user>" should be in the hold queue for "War and Peace"
+        # Now the user returns a book
+    When "<user>" returns "Hamlet" in the end
+    Then "<user>" should have 2 books borrowed
+    And a notification should be sent to "<user>" that "War and Peace" is now available
+
+    Examples:
+      | user  | pass     |
+      | alice | pass123  |
+      | bob   | pass456  |
+
+  Scenario: Basic borrow-return cycle
+    Given "alice" is logged in
+    When "alice" borrows "The Great Gatsby"
+    Then "The Great Gatsby" is borrowed by "alice"
+    And "The Great Gatsby" is unavailable to other users
+    When "alice" returns "The Great Gatsby"
+    Then "The Great Gatsby" is available
+
+  Scenario Outline: Multiple users borrowing books
+    Given "<user>" is logged in
+    When "<user>" borrows "<book>"
+    Then "<book>" is borrowed by "<user>"
+
+    Examples:
+      | user  | book                    |
+      | alice | 1984                     |
+      | bob   | Pride and Prejudice      |
+      | charlie | The Hobbit             |
+
+  Scenario: Users attempt to return books without borrowing any
+    Given "alice" is logged in
+    When "alice" attempts to return "The Great Gatsby"
+    Then the system should indicate "no books currently borrowed"
+
+    Given "charlie" is logged in
+    When "charlie" attempts to return "Pride and Prejudice"
+    Then the system should indicate "no books currently borrowed"
+
+    Given "bob" is logged in
+    When "bob" attempts to return "1984"
+    Then the system should indicate "no books currently borrowed"
+
+  Scenario Outline: Attempt to return a book without borrowing
+    Given "<user>" is logged in
+    When "<user>" attempts to return "<book>"
+    Then the system should indicate "no books currently borrowed"
+
+    Examples:
+      | user    | book                  |
+      | alice   | The Great Gatsby      |
+      | charlie | Pride and Prejudice   |
+      | bob     | 1984                  |
